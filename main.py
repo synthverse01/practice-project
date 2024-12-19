@@ -318,9 +318,54 @@ class App:
         for item in self.cart:
             tk.Label(self.root, text=f"{item[1]} - {item[3]}₽", font=("Comic Sans MS", 14),bg='white', fg='#498C51').pack()
 
-        
+            tk.Button(
+                self.root,
+                text="Оформить заказ",
+                font=("Comic Sans MS", 20),
+                bg='#498C51',
+                fg='white',
+                command=self.create_order
+            ).pack(pady=20)
 
         tk.Button(self.root, text="Назад",font=("Comic Sans MS", 14), bg='#498C51', fg='white', command=self.view_products).pack(side=tk.BOTTOM)
+
+
+    def create_order(self):
+        if not self.cart:
+            messagebox.showwarning("Ошибка", "Корзина пуста. Добавьте товары в корзину перед оформлением заказа.")
+            return
+
+        # Рассчитываем общую сумму заказа
+        total_amount = sum(product[3] for product in self.cart)  # Суммируем цены товаров
+        discount_amount = sum(product[3] * (float(str(product[4]).replace(',', '.')) / 100) for product in self.cart)  # Рассчитываем скидку
+    
+        # Добавляем заказ в базу данных
+        connection = sqlite3.connect(DB_FILE)
+        cursor = connection.cursor()
+        
+        user_id = 1  # Пример: замените на актуальный user_id из вашего приложения
+        status = 'Ожидает'  # Новый заказ имеет статус "Ожидает"
+        pickup_point = "Точка выдачи"  # Пример: добавьте реальную точку выдачи
+        pickup_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))  # Генерация кода для pickup
+        created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        delivery_date = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")  # Пример: доставка через 7 дней
+
+        cursor.execute('''
+            INSERT INTO orders (user_id, total_amount, discount_amount, status, pickup_point, pickup_code, created_at, delivery_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (user_id, total_amount, discount_amount, status, pickup_point, pickup_code, created_at, delivery_date))
+        
+        order_id = cursor.lastrowid  # Получаем ID нового заказа
+        connection.commit()
+        connection.close()
+
+        # Очистить корзину
+        self.cart.clear()
+
+        # Перенаправить на страницу управления заказами
+        messagebox.showinfo("Успех", f"Заказ оформлен! Номер заказа: {order_id}")
+        self.manage_orders()
+
 
     def manage_orders(self):
         self.clear_window()
