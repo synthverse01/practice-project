@@ -172,6 +172,8 @@ class App:
 
     def load_main_screen(self, role, fullname):
         self.clear_window()
+        self.current_role = role
+        self.current_fullname = fullname
         logo_image = Image.open("logo.png")  
         logo_image = logo_image.resize((150, 150), Image.Resampling.LANCZOS)  # Изменяем размер логотипа
         logo = ImageTk.PhotoImage(logo_image)
@@ -184,32 +186,112 @@ class App:
             tk.Button(self.root, text="Управление заказами", font=("Comic Sans MS", 20), bg='#498C51', fg='white', command=self.manage_orders).pack()
         tk.Button(self.root, text="Просмотр товаров", font=("Comic Sans MS", 20), bg='#498C51', fg='white', command=self.view_products).pack(pady=20)
         tk.Button(self.root, text="Выйти", font=("Comic Sans MS", 14), bg='#498C51', fg='white', command=self.create_login_screen).pack(pady=30)
+        tk.Button(
+            self.root,
+            text="Перейти в корзину",
+            font=("Comic Sans MS", 20),
+            bg='#498C51',
+            fg='white',
+            command=self.view_cart
+        ).pack(pady=20)
         
 
     def view_products(self):
         self.clear_window()
         tk.Label(self.root, text="Список товаров", font=("Comic Sans MS", 14), bg='#498C51', fg='white').pack()
 
+        # Создаем canvas для прокрутки
+        canvas = tk.Canvas(self.root, bg="white")
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # Создаем scrollbar и связываем его с canvas
+        scrollbar = tk.Scrollbar(self.root, orient="vertical", command=canvas.yview)
+        scrollbar.pack(side=tk.RIGHT, fill="y")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        # Фрейм внутри canvas
+        product_frame = tk.Frame(canvas, bg="white")
+        canvas.create_window((0, 0), window=product_frame, anchor="nw")
+
+        # Загружаем данные о товарах из базы данных
         connection = sqlite3.connect(DB_FILE)
         cursor = connection.cursor()
-        cursor.execute("SELECT id, name, description, price, discount, stock FROM products")
-        self.products = cursor.fetchall()
+        cursor.execute("SELECT id, name, description, price, discount, stock, image FROM products")
+        products = cursor.fetchall()
         connection.close()
 
-        columns = ("ID", "Название", "Описание", "Цена", "Скидка %", "Остаток")
-        self.tree = ttk.Treeview(self.root, columns=columns, show="headings")
-        for col in columns:
-            self.tree.heading(col, text=col, command=lambda c=col: self.sort_column(c))
+        # Добавляем товары в product_frame
+        for product in products:
+            # Фрейм для каждого товара
+            item_frame = tk.Frame(product_frame, bg="white", bd=2, relief="ridge")
+            item_frame.pack(fill=tk.X, padx=10, pady=5)
 
-        for product in self.products:
-            self.tree.insert("", tk.END, values=product)
-            
-        self.tree.pack(fill=tk.BOTH, expand=True)
+            # Загружаем изображение товара
+            if product[6]:  # Если указано изображение
+                try:
+                    img = Image.open(product[6])
+                    img = img.resize((100, 100), Image.Resampling.LANCZOS)
+                    photo = ImageTk.PhotoImage(img)
+                    img_label = tk.Label(item_frame, image=photo, bg="white")
+                    img_label.image = photo  # Сохраняем ссылку на изображение
+                    img_label.pack(side=tk.LEFT, padx=10)
+                except Exception as e:
+                    print(f"Ошибка загрузки изображения: {e}")
+                    tk.Label(item_frame, text="Нет изображения", bg="white").pack(side=tk.LEFT, padx=10)
 
-        tk.Button(self.root, text="Добавить в корзину",font=("Comic Sans MS", 14), bg='#498C51', fg='white', command=self.add_to_cart).pack()
-        tk.Button(self.root, text="Просмотр корзины", font=("Comic Sans MS", 14), bg='#498C51', fg='white',command=self.view_cart).pack()
-        
-        tk.Button(self.root, text="Назад", font=("Comic Sans MS", 14), bg='#498C51', fg='white',command=lambda: self.load_main_screen("Гость", "Гость")).pack()
+            # Информация о товаре
+            text = f"Название: {product[1]}\nОписание: {product[2]}\nЦена: {product[3]} ₽\nСкидка: {product[4]}%\nОстаток: {product[5]}"
+            tk.Label(item_frame, text=text, font=("Comic Sans MS", 12), bg="white", justify="left").pack(side=tk.LEFT, padx=10)
+
+            # Кнопка добавления товара в корзину
+            add_to_cart_button = tk.Button(
+                item_frame,
+                text="Добавить в корзину",
+                font=("Comic Sans MS", 12),
+                bg="#498C51",
+                fg="white",
+                command=lambda product=product: self.add_product_to_cart(product)
+            )
+            add_to_cart_button.pack(side=tk.RIGHT, padx=10)
+
+        # Обновляем область прокрутки
+        product_frame.update_idletasks()
+        canvas.config(scrollregion=canvas.bbox("all"))
+
+        # Кнопка назад
+        tk.Button(self.root, text="Назад", font=("Comic Sans MS", 14), bg='#498C51', fg='white', command=lambda: self.load_main_screen("Гость", "Гость")).pack(pady=20)
+
+    def add_product_to_cart(self, product):
+        self.cart.append(product)
+        messagebox.showinfo("Корзина", f"Товар '{product[1]}' добавлен в корзину.")
+
+
+    def view_cart(self):
+        self.clear_window()
+        tk.Label(self.root, text="Ваша корзина", font=("Comic Sans MS", 20), bg='#498C51', fg='white').pack(pady=20)
+
+        if not self.cart:
+            tk.Label(self.root, text="Корзина пуста.", font=("Comic Sans MS", 16), bg='white', fg='#498C51').pack()
+        else:
+            for product in self.cart:
+                tk.Label(
+                    self.root,
+                    text=f"{product[1]} - {product[3]} ₽",
+                    font=("Comic Sans MS", 16),
+                    bg="white",
+                    fg="#498C51"
+                ).pack(pady=5)
+
+        tk.Button(
+            self.root,
+            text="Назад",
+            font=("Comic Sans MS", 14),
+            bg='#498C51',
+            fg='white',
+            command=lambda: self.load_main_screen(self.current_role, self.current_fullname)
+        ).pack(pady=20)
+
+
 
     def sort_column(self, col):
         col_idx = ["ID", "Name", "Description", "Price", "Discount", "Stock"].index(col)
@@ -217,15 +299,6 @@ class App:
         self.tree.delete(*self.tree.get_children())
         for product in self.products:
             self.tree.insert("", tk.END, values=product)
-
-    def add_to_cart(self):
-        selected_item = self.tree.selection()
-        if not selected_item:
-            messagebox.showwarning("Нет выбора", "Пожалуйста, выберите товар для добавления в корзину.")
-            return
-        product = self.tree.item(selected_item, 'values')
-        self.cart.append(product)
-        messagebox.showinfo("Добавлено", f"{product[1]} добавлен в корзину.")
 
     def view_cart(self):
         self.clear_window()
