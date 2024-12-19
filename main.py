@@ -67,7 +67,7 @@ class App:
         self.clear_window()
         
         logo_image = Image.open("logo.png")  
-        logo_image = logo_image.resize((150, 150), Image.ANTIALIAS)  # Изменяем размер логотипа
+        logo_image = logo_image.resize((150, 150), Image.Resampling.LANCZOS)  # Изменяем размер логотипа
         logo = ImageTk.PhotoImage(logo_image)
 
         logo_label = tk.Label(self.root, image=logo,  bg="white")
@@ -173,7 +173,7 @@ class App:
     def load_main_screen(self, role, fullname):
         self.clear_window()
         logo_image = Image.open("logo.png")  
-        logo_image = logo_image.resize((150, 150), Image.ANTIALIAS)  # Изменяем размер логотипа
+        logo_image = logo_image.resize((150, 150), Image.Resampling.LANCZOS)  # Изменяем размер логотипа
         logo = ImageTk.PhotoImage(logo_image)
 
         logo_label = tk.Label(self.root, image=logo,  bg="white")
