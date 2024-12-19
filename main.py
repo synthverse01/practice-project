@@ -58,6 +58,10 @@ class App:
         self.root.title("ООО «Пиши-стирай»")
         self.root.configure(bg="white")
         self.create_login_screen()
+
+        self.current_role = None
+        self.current_fullname = None
+
         self.captcha_attempts = 0
         self.locked_until = None
         self.cart = [] 
@@ -112,7 +116,14 @@ class App:
         
     
         tk.Button(button_frame, text="Войти", font=("Comic Sans MS", 14), bg='#498C51', fg='white', command=self.handle_login).pack(side=tk.LEFT, padx=20)
-        tk.Button(button_frame, text="Гостевой режим", font=("Comic Sans MS", 14), bg='#498C51', fg='white', command=lambda: self.load_main_screen("Гоcтевой режим", "Гость")).pack(side=tk.LEFT, padx=20)
+        tk.Button(
+            button_frame,
+            text="Гостевой режим",
+            font=("Comic Sans MS", 14),
+            bg='#498C51',
+            fg='white',
+            command=lambda: self.load_main_screen("Гость", "Гость")
+        ).pack(side=tk.LEFT, padx=20)
 
     def handle_login(self):
         if self.locked_until and datetime.now() < self.locked_until:
@@ -132,10 +143,10 @@ class App:
                 return
 
         if self.authenticate_user(username, password):
-            role = self.get_user_role(username)
-            fullname = self.get_user_fullname(username)
-            messagebox.showinfo("Успех", f"Вошли как {role} - {fullname}")
-            self.load_main_screen(role, fullname)
+            self.current_role = self.get_user_role(username)  # Сохранение роли
+            self.current_fullname = self.get_user_fullname(username)  # Сохранение имени
+            messagebox.showinfo("Успех", f"Вошли как {self.current_role} - {self.current_fullname}")
+            self.load_main_screen(self.current_role, self.current_fullname)
         else:
             self.captcha_attempts += 1
             self.captcha_label.pack()
@@ -259,7 +270,7 @@ class App:
         canvas.config(scrollregion=canvas.bbox("all"))
 
         # Кнопка назад
-        tk.Button(self.root, text="Назад", font=("Comic Sans MS", 14), bg='#498C51', fg='white', command=lambda: self.load_main_screen("Гость", "Гость")).pack(pady=20)
+        tk.Button(self.root, text="Назад", font=("Comic Sans MS", 14), bg='#498C51', fg='white', command=lambda: self.load_main_screen(self.current_role, self.current_fullname)).pack(pady=20)
 
     def add_product_to_cart(self, product):
         self.cart.append(product)
